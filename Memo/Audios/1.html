@@ -1,348 +1,223 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <title>Áudio estilo WhatsApp - integrado com avatar</title>
-
-  <!-- Font Awesome apenas para o ícone do microfone -->
+  <meta charset="UTF-8">
+  <title>Áudio</title>
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.6.7/plyr.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-
   <style>
-    :root{
-      --bg: transparent;
-      --primary: #25D366;          /* play button */
-      --bar-active: #ffffff;      /* cor das barras já tocadas */
-      --bar-inactive: rgba(255,255,255,0.35); /* cor das barras não tocadas */
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
+      
+    /* permitir que o conteúdo não seja cortado */
+    body {
+      margin: 0;
+      height: auto;
+      overflow: visible;
+      font-family: 'Open Sans', sans-serif;
+    }    
 
-    html,body{height:100%;margin:0;padding:0;background:var(--bg);font-family:Inter,Arial,Helvetica,sans-serif;}
-
-    /* wrapper específico para evitar interferência do CSS externo */
-    .audio-embed{ 
-      display:flex;
-      align-items:center;
-      gap:8px;
-      width:100%;
-      box-sizing:border-box;
-      padding:8px 10px;
+    /* ajustar container para ser responsivo (antes estava width:100px) */
+    .audio-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       cursor: pointer;
-      overflow: visible; /* garante que avatar não seja cortado */
-      user-select:none;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      padding: 8px 16px; /* espaço lateral para evitar corte */
+      font-family: 'Open Sans', sans-serif;
     }
 
-    /* FORÇA esconder controles nativos / bibliotecas (caso Typebot injete algo) */
-    .audio-embed audio,
-    .audio-embed .plyr,
-    .audio-embed input[type="range"],
-    .audio-embed .native-player,
-    .audio-embed .player-controls {
-      display: none !important;
-      visibility: hidden !important;
-      height: 0 !important;
+    /* garantir que o player ocupe o espaço restante e possa encolher corretamente */
+    .audio-container .plyr {
+      flex: 1;
+      min-width: 0; /* IMPORTANT: permite que o elemento diminua corretamente em flexbox */
+      margin-right: 8px;
     }
 
-    .play-btn{
-      width:44px;
-      height:44px;
-      border-radius:50%;
-      border:0;
-      background:var(--primary);
-      color:#fff;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:18px;
-      flex:0 0 44px;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
-    }
-
-    /* waveform estilo WhatsApp */
-    .waveform{
-      display:flex;
-      align-items:flex-end;
-      gap:4px;
-      height:34px;
-      flex:1 1 auto;
-      min-width:60px;
-      padding-right:6px;
-      box-sizing:border-box;
-      overflow: visible;
-    }
-
-    .bar{
-      width:4px;
-      height:8px;
-      border-radius:3px;
-      background:var(--bar-inactive);
-      transition: height 0.08s linear, background 0.12s linear;
-      transform-origin: center bottom;
-    }
-
-    /* avatar com microfone sobreposto (aproximado) */
-    .avatar-wrap{
+    .audio-container img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      object-fit: cover;
+      padding-right: 8px;
+      padding-left: 10px;
+      display: block;
+      box-sizing: border-box;
       position: relative;
-      width:50px;
-      height:50px;
-      flex:0 0 50px;
-      margin-left: -6px; /* aproxima a imagem da waveform */
-      box-sizing:border-box;
-      overflow: visible;
     }
 
-    .avatar-wrap img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      border-radius:50%;
-      display:block;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+    /* posicionamento do ícone sobre a imagem - mantive a estética original,
+       ajustando valores para evitar que fique fora do container */
+    .audio-container .microphone-icon {
+      position: relative;
+      margin-left: -32px; /* menor valor para sobrepor a imagem sem sair do container */
+      margin-bottom: -24px;
+      font-size: 20px;
+      color: #4ad954;
+      z-index: 3;
+      pointer-events: none; /* evita conflito de clique sobre o ícone */
     }
 
-    .microphone-icon{
-      position:absolute;
-      right: -6px;    /* sobrepor levemente para ficar junto da imagem */
-      bottom: -6px;
-      font-size:18px;
-      color:#4ad954;
-      z-index:3;
-      pointer-events:none; /* evita conflitos de clique */
-      text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+    .audio-container .microphone-icon.blue {
+      color: #3db8ee;
     }
-    .microphone-icon.blue{ color:#3db8ee; }
 
-    /* pequeno ajuste responsivo */
-    @media (max-width:360px){
-      .waveform{ height:28px; gap:3px; }
-      .bar{ width:3px; }
-      .play-btn{ width:40px; height:40px; font-size:16px; }
-      .avatar-wrap{ width:44px; height:44px; margin-left:-4px; }
-      .microphone-icon{ right:-4px; bottom:-4px; font-size:16px; }
+    .plyr--audio .plyr__control.plyr__tab-focus,
+    .plyr--audio .plyr__control:hover,
+    .plyr--audio .plyr__control[aria-expanded=false] {
+      background: rgba(0, 0, 0, 0);
+      color: var(--plyr-audio-control-color-hover, #797979)
+    }
+
+    .plyr--audio .plyr__controls {
+      background: rgba(0, 0, 0, 0);
+      border-radius: inherit;
+      color: #4a5464;
+      margin-left: 0px;
+      padding: 0px;
+      overflow: visible; /* garantir que nada seja cortado dentro dos controles */
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .plyr--audio .plyr__control--overlaid .plyr__control__icon {
+      font-size: 33px;
+    }
+
+    .plyr--full-ui input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      border: 0;
+      border-radius: 100%;
+      box-shadow: 0 1px 1px rgba(35,40,47,.15),0 0 0 1px rgba(35,40,47,.2);
+      height: 13px;
+      margin-top: -4px;
+      position: relative;
+      transition: all .2s ease;
+      width: 13px;
+      background: var(--range-thumb-background, #4ad954);
+    }  
+
+    .plyr--full-ui input[type=range].blue::-webkit-slider-thumb {
+      background: var(--range-thumb-background-active, #3db8ee);
+    }
+  
+    .hide {
+      display: none;
+    }
+
+    .plyr__controls .plyr__controls__item.plyr__progress__container:first-child,
+    .plyr__controls .plyr__controls__item.plyr__time+.plyr__time,
+    .plyr__controls .plyr__controls__item.plyr__time:first-child {
+      padding-left: 0;
+      display: block;
+      margin-left: 7.5px;
+    }
+
+    .plyr__time+.plyr__time:before {
+      content: "";
+      margin-right: var(--plyr-control-spacing);
+    }
+
+    .plyr--audio .plyr__controls .plyr__controls__item.plyr__time--current.hide,
+    .plyr--audio .plyr__controls .plyr__controls__item.plyr__time--duration.hide {
+      display: none;
+    }
+
+    /* pequenas proteções responsivas */
+    @media (max-width: 360px) {
+      .audio-container {
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      .audio-container .microphone-icon {
+        margin-left: -26px;
+        margin-bottom: -20px;
+        font-size: 18px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="audio-embed" id="audioEmbed">
-    <button class="play-btn" id="playBtn" aria-label="Play/Pause">▶</button>
-
-    <div class="waveform" id="waveform" aria-hidden="true"></div>
-
-    <div class="avatar-wrap" id="avatarWrap">
-      <!-- sua imagem (mantive sua URL) -->
-      <img id="avatar" src="https://storage.chatecom.app/typebot/public/workspaces/gabrielpiochtavares@gmail.com/typebots/9af33e3d8b4d48209446784c81e9b566/blocks/cuae0wqlihuenlo77xtay29d?v=1726604919248" alt="Imagem">
-      <div class="microphone-icon" id="micIcon"><i class="fas fa-microphone"></i></div>
+  <div class="audio-container" id="audioContainer">
+    <!-- Cole o link do Seu áudio Abaixo-->
+    <audio class="plyr" src="https://s3.typebot.io/public/workspaces/cmfid3w9w000qjr04ulcjbft9/typebots/b09hepl041fyv7q5nhf6dt39/blocks/uqehab3o02f69iybmix0wvrs?v=1757669692226"></audio>
+    <!-- Cole o link da Sua imagem Abaixo-->
+    <img src="https://storage.chatecom.app/typebot/public/workspaces/gabrielpiochtavares@gmail.com/typebots/9af33e3d8b4d48209446784c81e9b566/blocks/cuae0wqlihuenlo77xtay29d?v=1726604919248" alt="Imagem">
+    <div class="microphone-icon" aria-hidden="true">
+      <i class="fas fa-microphone"></i>
     </div>
-
-    <!-- seu áudio (mantive sua URL e crossorigin para Analyser funcionar quando permitido) -->
-    <audio id="audio" crossorigin="anonymous"
-      src="https://s3.typebot.io/public/workspaces/cmfid3w9w000qjr04ulcjbft9/typebots/b09hepl041fyv7q5nhf6dt39/blocks/uqehab3o02f69iybmix0wvrs?v=1757669692226"></audio>
   </div>
-
+  
+  <script src="https://cdn.plyr.io/3.6.7/plyr.js"></script>
   <script>
-    (function () {
-      const audio = document.getElementById('audio');
-      const playBtn = document.getElementById('playBtn');
-      const waveform = document.getElementById('waveform');
-      const micIcon = document.getElementById('micIcon');
-      const audioEmbed = document.getElementById('audioEmbed');
+    document.addEventListener('DOMContentLoaded', function() {
+      // inicializa o Plyr
+      const player = new Plyr('.plyr', {
+        controls: ['play', 'progress', 'current-time', 'duration']
+      });
 
-      const NUM_BARS = 18;
-      const MAX_BAR_HEIGHT = 34;
-      const ACTIVE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--bar-active').trim() || '#fff';
-      const INACTIVE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--bar-inactive').trim() || 'rgba(255,255,255,0.35)';
+      const audioElement = document.querySelector('.plyr');
+      const currentTimeElement = document.querySelector('.plyr__time--current');
+      const durationElement = document.querySelector('.plyr__time--duration');
+      const microphoneIcon = document.querySelector('.microphone-icon');
 
-      // criar barras
-      const bars = [];
-      for (let i = 0; i < NUM_BARS; i++) {
-        const b = document.createElement('div');
-        b.classList.add('bar');
-        // altura inicial aleatória (look natural)
-        const initH = 6 + Math.round(Math.random() * (MAX_BAR_HEIGHT - 6));
-        b.style.height = initH + 'px';
-        b.style.background = INACTIVE_COLOR;
-        waveform.appendChild(b);
-        bars.push(b);
+      if (currentTimeElement) currentTimeElement.classList.add('hide'); // Adiciona a classe 'hide' ao iniciar
+
+      if (audioElement) {
+        audioElement.addEventListener('play', function() {
+          if (currentTimeElement) currentTimeElement.classList.remove('hide');
+          if (durationElement) durationElement.classList.add('hide');
+          microphoneIcon && microphoneIcon.classList.add('blue'); // muda cor do ícone
+          audioElement.classList.add('blue'); // muda o thumb do range
+          audioElement.style.setProperty('--range-thumb-background', '#3db8ee');
+        });
+
+        audioElement.addEventListener('pause', function() {
+          if (currentTimeElement) currentTimeElement.classList.add('hide');
+          if (durationElement) durationElement.classList.remove('hide');
+        });
       }
 
-      // esconder controles nativos (garantia extra)
-      audio.controls = false;
+      const audioContainer = document.getElementById('audioContainer');
 
-      // Web Audio API
-      let audioCtx = null, analyser = null, source = null;
-      let dataArray = null, bufferLength = 0;
-      let rafId = null;
-      let analyserOk = false;
-      let fallbackInterval = null;
+      if (audioContainer) {
+        audioContainer.addEventListener('click', function(event) {
+          // evita que cliques nos controles internos gerem ação duplicada
+          const controls = audioContainer.querySelector('.plyr__controls');
+          if (controls && controls.contains(event.target)) return;
 
-      function initAnalyserIfPossible(){
-        try {
-          if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            source = audioCtx.createMediaElementSource(audio);
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 256;
-            bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            analyserOk = true;
+          const playButton = audioContainer.querySelector('.plyr__controls button[data-plyr="play"]');
+          if (playButton) playButton.click();
+          else if (audioElement) {
+            // fallback: alterna play/pause diretamente no elemento de áudio
+            if (audioElement.paused) audioElement.play();
+            else audioElement.pause();
           }
-        } catch (err) {
-          analyserOk = false;
-          console.warn('Analyser não disponível (CORS/navegador). Usando fallback.', err);
-        }
-      }
-
-      function analyserLoop(){
-        if (!analyser) return;
-        analyser.getByteFrequencyData(dataArray);
-
-        // mapear fatias do espectro para as barras
-        for (let i = 0; i < NUM_BARS; i++) {
-          const start = Math.floor(i * bufferLength / NUM_BARS);
-          const end = Math.floor((i + 1) * bufferLength / NUM_BARS);
-          let sum = 0;
-          for (let j = start; j <= end; j++) sum += dataArray[j];
-          const avg = sum / (end - start + 1);
-          const h = Math.max(6, Math.round((avg / 255) * MAX_BAR_HEIGHT));
-          bars[i].style.height = h + 'px';
-        }
-
-        // colorir parte tocada
-        const prog = (audio.duration && !isNaN(audio.duration)) ? (audio.currentTime / audio.duration) : 0;
-        const playedIndex = Math.floor(prog * NUM_BARS);
-        bars.forEach((bar, idx) => {
-          bar.style.background = (idx <= playedIndex) ? ACTIVE_COLOR : INACTIVE_COLOR;
         });
-
-        rafId = requestAnimationFrame(analyserLoop);
       }
 
-      function startFallback(){
-        stopFallback();
-        fallbackInterval = setInterval(() => {
-          bars.forEach((b, i) => {
-            const h = 6 + Math.round(Math.random() * (MAX_BAR_HEIGHT - 6));
-            b.style.height = h + 'px';
-          });
-          // colorir por progresso
-          const prog = (audio.duration && !isNaN(audio.duration)) ? (audio.currentTime / audio.duration) : 0;
-          const playedIndex = Math.floor(prog * NUM_BARS);
-          bars.forEach((bar, idx) => {
-            bar.style.background = (idx <= playedIndex) ? ACTIVE_COLOR : INACTIVE_COLOR;
-          });
-        }, 110);
-      }
-
-      function stopFallback(){
-        if (fallbackInterval) {
-          clearInterval(fallbackInterval);
-          fallbackInterval = null;
-        }
-      }
-
-      function startVisuals(){
-        micIcon.classList.add('blue');
-        // tenta Web Audio
-        initAnalyserIfPossible();
-        if (analyserOk){
-          cancelAnimationFrame(rafId);
-          analyserLoop();
-        } else {
-          startFallback();
-        }
-      }
-
-      function stopVisuals(){
-        micIcon.classList.remove('blue');
-        if (rafId) cancelAnimationFrame(rafId);
-        stopFallback();
-      }
-
-      // play/pause handlers
-      async function playAudio(){
-        try {
-          if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
-          await audio.play();
-          playBtn.textContent = '⏸';
-          startVisuals();
-        } catch(e){
-          console.warn('Erro ao tocar áudio:', e);
-        }
-      }
-
-      function pauseAudio(){
-        audio.pause();
-        playBtn.textContent = '▶';
-        stopVisuals();
-      }
-
-      playBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (audio.paused) playAudio();
-        else pauseAudio();
-      });
-
-      // clicar no container alterna (exceto quando clicando no botão)
-      audioEmbed.addEventListener('click', (ev) => {
-        if (ev.target === playBtn) return;
-        if (audio.paused) playAudio();
-        else pauseAudio();
-      });
-
-      // seek clicando na waveform (mapeia posição)
-      waveform.addEventListener('click', (ev) => {
-        if (!audio.duration || isNaN(audio.duration)) return;
-        const rect = waveform.getBoundingClientRect();
-        const x = ev.clientX - rect.left;
-        const pct = Math.max(0, Math.min(1, x / rect.width));
-        audio.currentTime = pct * audio.duration;
-        // atualizar visual imediatamente
-        const playedIndex = Math.floor(pct * NUM_BARS);
-        bars.forEach((bar, idx) => {
-          bar.style.background = (idx <= playedIndex) ? ACTIVE_COLOR : INACTIVE_COLOR;
-        });
-      });
-
-      // eventos do audio
-      audio.addEventListener('play', async () => {
-        if (!audioCtx) initAnalyserIfPossible();
-        if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
-        startVisuals();
-        playBtn.textContent = '⏸';
-      });
-
-      audio.addEventListener('pause', () => {
-        playBtn.textContent = '▶';
-        stopVisuals();
-      });
-
-      audio.addEventListener('ended', () => {
-        playBtn.textContent = '▶';
-        stopVisuals();
-        // reset visual
-        bars.forEach(b => {
-          const h = 6 + Math.round(Math.random() * (MAX_BAR_HEIGHT - 6));
-          b.style.height = h + 'px';
-          b.style.background = INACTIVE_COLOR;
-        });
-      });
-
-      // quando o áudio avança (ex.: seek), colorimos a parte tocada
-      audio.addEventListener('timeupdate', () => {
-        if (audio.duration && !isNaN(audio.duration)) {
-          const prog = audio.currentTime / audio.duration;
-          const playedIndex = Math.floor(prog * NUM_BARS);
-          bars.forEach((bar, idx) => {
-            bar.style.background = (idx <= playedIndex) ? ACTIVE_COLOR : INACTIVE_COLOR;
+      // garante que o clique no próprio botão não propague para o container (evita duplo toggle)
+      if (audioContainer) {
+        const playPauseButton = audioContainer.querySelector('.plyr__controls button[data-plyr="play"]');
+        if (playPauseButton) {
+          playPauseButton.addEventListener('click', function(e) {
+            e.stopPropagation();
           });
         }
-      });
+      }
 
-      // proteção: se Analyser falhar, usa fallback
-      window.addEventListener('unhandledrejection', () => { analyserOk = false; });
-
-      // pronto — animações e interação configuradas
-    })();
+      // Se houver .audio-box no futuro, protegemos contra null
+      const audioBox = document.querySelector('.audio-box');
+      if (audioBox && audioContainer) {
+        audioBox.addEventListener('click', function(event) {
+          event.stopPropagation(); 
+          const playButton = audioContainer.querySelector('.plyr__controls button[data-plyr="play"]');
+          if (playButton) playButton.click();
+        });
+      }
+    });
   </script>
 </body>
 </html>
